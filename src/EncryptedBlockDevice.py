@@ -53,6 +53,7 @@ class EncryptedBlockDevice(object):
 		for (sector,ciphertext,read_begin, read_end,read_size) in self._read(size):
 			self.logger.debug("EBD: sector %d begin %d end %d size %d", sector,read_begin,read_end,read_size) 
 			plaintext = crypto.decrypt(sector,ciphertext)	
+			self.logger.debug("EBD: read crypto returned %d data", len(ciphertext))
 			buf+=plaintext[read_begin:read_end]
 		self.logger.debug("EBD read successfull read size: %d", len(buf))
 		return buf
@@ -65,27 +66,21 @@ class EncryptedBlockDevice(object):
 		sector_size = self.sector_size
 		self.logger.debug("EBD write, offset %d, len: %d ", self.offset, len(plaintext))
 		plaintext_size = len(plaintext)
-		fp = open("magic", "ab")
 		while plaintext_size > 0 :
 			(sector, sector_offset) = self.get_current_sector()	
 			write_begin = sector_offset
 			write_end = min(plaintext_size+sector_offset,sector_size)
 			write_size = write_end-write_begin
 
-			fp.write("sector %d, begin %d , end %d"%(sector,write_begin,write_end))
 			ciphertext = self.device.read(sector)
-			fp.write(ciphertext)
 
 			ciphertext = crypto.encrypt(sector,plaintext[:write_size],ciphertext,write_begin,write_end)
-			fp.write("reencryption")	
-			fp.write(ciphertext)
 			self.logger.debug("EBD write_begin: %d write_end: %d size: %d plaintext_size %d",write_begin,write_end,write_size,plaintext_size)	
 			device.write(sector,ciphertext)
 			plaintext=plaintext[write_end:]
 			self.offset+=write_size
 			plaintext_size-=write_size
 
-		fp.close()
 		self.logger.debug("EBD write end")
 	def flush(self):
 		self.logger.debug("EBD flush")

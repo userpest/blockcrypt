@@ -4,6 +4,7 @@ from EncryptedBlockDevice import *
 from DiskDrivers import *
 from EncryptionDrivers import *
 import logging
+import hashlib
 # Working: nbd protocol, read/write serving up files, error handling, file size detection, in theory, large file support... not really, so_reuseaddr, nonforking
 
 def recvall(sock, length):
@@ -50,7 +51,8 @@ if __name__ == '__main__':
 	    FileDiskDriver.create_disk(filename, 1024*1024,1024)
 
     disk = FileDiskDriver(filename)
-    crypto = DummyEncryptionDriver(disk.sector_size)
+    key = hashlib.sha256("666").digest() 
+    crypto = CbcEssivEncryptionDriver(key,disk.sector_size)
 
     dev = EncryptedBlockDevice(crypto,disk)
 
