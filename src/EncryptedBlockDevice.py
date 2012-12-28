@@ -77,7 +77,7 @@ class EncryptedBlockDevice(object):
 			ciphertext = crypto.encrypt(sector,plaintext[:write_size],ciphertext,write_begin,write_end)
 			self.logger.debug("EBD write_begin: %d write_end: %d size: %d plaintext_size %d",write_begin,write_end,write_size,plaintext_size)	
 			device.write(sector,ciphertext)
-			plaintext=plaintext[write_end:]
+			plaintext=plaintext[write_size:]
 			self.offset+=write_size
 			plaintext_size-=write_size
 
