@@ -4,14 +4,16 @@ import logging
 from collections import deque
 from dropbox import client, rest, session
 from StringIO import StringIO
-
+from util import *
+import re
 #use /dev/random if security matters
 
-def get_random_sector(sector_size, source ="/dev/urandom" )
-	fp = open(source,"rb")
-	data = fp.read(sector_size)
-	fp.close()
-	return data
+class WrongDiskSize(Exception):
+	def __init__(self,message):
+		super(WrongSectorSizeException, self).__init__()
+		self.message=message
+
+
 
 #TODO: should inherit after EncryptedBlockDevice
 class DiskDriver(object):
@@ -21,6 +23,8 @@ class DiskDriver(object):
 		self.size = size
 		self.sector_size = sector_size
 		self.logger = logging.getLogger("blockcrypt")
+		if size % sector_size != 0:
+			raise WrongDiskSize("disk size must the multiple of sector size")
 
 	def read(self,sector):
 		pass
@@ -32,16 +36,13 @@ class DiskDriver(object):
 	def create_disk():
 		pass
 
-class FileDiskDriver(DiskDriver):
-	def __init__(self,filename):
 
-		size = os.stat(filename).st_size
-		sector_size = 10
-		super(FileDiskDriver,self).__init__(size,sector_size)
-		self.disk_begin = 0 
-		self.fp = open(filename,"r+b")
+class FileBasedDiskDriver(DiskDriver):
+	def __init__(self,fp,sector_size,size,disk_begin=0):
+		super(FileBasedDiskDriver,self).__init__(size,sector_size)
+		self.fp = fp
+		self.disk_begin = disk_begin
 
-		self.sector_size = self.read_disk_info()[0]
 
 	def write(self,sector,data):
 		offset = self.sector_size*sector+self.disk_begin
@@ -58,16 +59,31 @@ class FileDiskDriver(DiskDriver):
 		buf = self.fp.read(self.sector_size)
 		return buf
 
-	def read_disk_info(self):
+		#TODO: source should be random, urandom is for speed
+		def flush(self):
+		self.fp.flush()
+
+class FileDiskDriver(FileDiskDriver):
+	def __init__(self,filename):
+		fp = open(filename,"r+b")
+		(size,sector_size,disk_begin) = self.read_disk_info()
+		super(FileDiskDriver,self).__init__(fp,size,sector_size,disk_begin)
+
+	@staticmethod
+	def read_disk_info(filename):
+		fp = open(filename,'rb')
 		self.logger.debug("FDD: read disk info ")
 		info_size = struct.calcsize('Q')
-		info = self.fp.read(info_size)
-		self.disk_begin = info_size
-		self.fp.seek(self.disk_begin)
-		self.logger.debug("FDD: info_size %d , disk_begin %d", info_size, self.disk_begin)
-		return struct.unpack('Q', info)
+		info = fp.read(info_size)
+		disk_begin = info_size
 
-	#TODO: source should be random, urandom is for speed
+		size = os.stat(filename).st_size
+		self.logger.debug("FDD: info_size %d , disk_begin %d", info_size, self.disk_begin)
+		fp.close()
+		sector_size = struct.unpack('Q', info)[0]
+		return (size,sector_size,disk_begin)
+
+
 	@staticmethod
 	def create_disk(filename, disk_size,sector_size,rand_source='/dev/urandom'):
 		fp = open(filename, "wb")
@@ -87,9 +103,23 @@ class FileDiskDriver(DiskDriver):
 			left-=to_read
 		fp.flush()
 		fp.close()
-	def flush(self):
-		self.fp.flush()
-		
+
+class HDDDiskDriver(FileBasedDiskDriver):
+
+	def __init__(self,disk):
+		fp = open(disk,'r+b')
+		(size,sector_size) = self.get_sector_size(disk)
+		super(HDDDiskDriver,self).__init__(fp,size,sector_size)
+
+	def get_sector_size(disk):
+		dev = disk.split('/')[-1]
+		name = re.sub("[^a-zA-Z]", "", dev)
+		path = "/sys/block"+name
+		sector_size = int(open(path+"/queue/hw_sector_size",'r').read())
+		size = int(open(path+dev+"size","r").read())
+		return (size,sector_size)
+
+
 class CachedDiskDriver(DiskDriver):
 	#TODO: change to *args & **kwargs
 	"""
@@ -148,8 +178,8 @@ class CachedDiskDriver(DiskDriver):
 		sector_cache = self.sector_cache
 		sectors_accessed=self.sectors_accessed
 
-		while len(sectors_accessed)>0:
-			self.uncache_last()
+		for i in sectors_accessed:
+			self.write_sector(sector,sector_cache[sector])
 
 
 	def get_sector(self,sector):

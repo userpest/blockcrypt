@@ -1,3 +1,8 @@
+def get_random_sector(sector_size, source ="/dev/urandom" )
+	fp = open(source,"rb")
+	data = fp.read(sector_size)
+	fp.close()
+	return data
 #meh we cant use struct to convert 16bytes int ;f
 #generally speaking gief python3
 def to_bytes(n):
