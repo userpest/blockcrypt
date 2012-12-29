@@ -2,39 +2,9 @@ from Crypto.Cipher import AES
 import hashlib
 import struct 
 import math
-import gf
+from gf2n import * 
+from util import *
 
-#meh we cant use struct to convert 16bytes int ;f
-#generally speaking gief python3
-def to_bytes(n):
-	buf = bytearray()
-	while n > 0:
-		c = n % 256
-		buf=chr(c)+buf
-		n = n>>8
-
-	return buf
-
-def from_bytes(buf):
-	l = len(buf)
-	ret = 0 
-	while l > 0:
-		ret=ret<<8
-		ret+=ord(buf[0])
-		buf=buf[8:]
-		l -= 8
-
-	return ret
-
-
-#meh i should add operator to bytearray instead
-#strings should be equal
-def xor_bytes(a,b):
-	assert len(a)==len(b)
-
-	ret = bytearray(len(a))
-	for i in range(0,len(a)):
-		ret[i]=a[i]^b[i]
 
 
 class WrongSectorSizeException(Exception):
@@ -44,8 +14,7 @@ class WrongSectorSizeException(Exception):
 
 class EncryptionDriver(object):
 	"""
-	virtal+testing class
-	it DOES NOT PROVIDE ANY FORM OF ENCRYPTION
+	virtual class
 	"""
 	def __init__(self,key,sector_size,block_size):
 		self.sector_size = sector_size
@@ -159,10 +128,8 @@ class LRWEncryptionDriver(TweakableBlockEncryptionDriver):
 	def __init__(self,keys,sector_size):
 		super(LRWEncryptionDriver,self).__init__(keys,sector_size)
 		self.crypto = AES.new(self.key[0])
-	def get_x(self,block):
-		gf_base = 1<<129 + 1<<8+1<<3+1<<2+1
-		gf.setGF2(128,gf_base)
-		x = gf.multGF2(self.key[1], block)
+	def get_x(self,index):
+		x = gf2pow128mul(self.key[1], index)
 		x=to_bytes(x)
 		return x
 
@@ -186,12 +153,40 @@ class LRWEncryptionDriver(TweakableBlockEncryptionDriver):
 		e = xor_bytes(e,x)
 		return e
 
-class XEXEncryptionDriver(TweakableBlockEncryptionDriver):
-	def get_x(self,block):
-		
+
+class XTSEncryptionDriver(TweakableBlockEncryptionDriver):
+	def __init__(self,key,sector_size):
+		self.x_crypto = AES.new(key[1])
+		self.crypto = AES.new(key[0])
+
+	def get_x(self,sector,block):
+		index = to_bytes(sector)
+		x = self.x_crypto.encrypt(index)
+		x = from_bytes(x)
+		block = gf2pow128powof2(block)
+		x = gf2pow128mul(x,block)
+		x = to_bytes(x)
+		return x
+			
 	def encrypt_block(self,sector,block,plaintext):
-		
+		x = self.get_x(sector,block)	
+		buf = xor_bytes(x,plaintext)
+		buf = self.crypto.encrypt(buf)
+		buf = xor_bytes(x,buf)
+		return buf
+
 
 	def decrypt_block(self,sector,block,ciphertext):
+		x = self.get_x(sector,block)
+		buf = xor_bytes(x,ciphertext)
+		buf = self.crypto.decrypt(buf)
+		buf = xor_bytes(x,buf)
+		return buf
+
+
+
+class XEXEncryptionDriver(XTSEncryptionDriver):
+	def __init__(self,key,sector_size):
+		super(XEXEncryptionDriver,self).__init__((key,key),sector_size)
 
 
