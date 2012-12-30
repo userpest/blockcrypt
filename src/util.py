@@ -1,5 +1,15 @@
 from hashlib import sha256, md5
 
+def to_hex(s):
+	lst = []
+	for ch in s:
+		hv = hex(ord(ch)).replace('0x', '')
+		if len(hv) == 1:
+			hv = '0'+hv
+		lst.append(hv)
+
+	return reduce(lambda x,y:x+y, lst)
+
 def expand_to_256bit(key):
 	return sha256(key).digest()
 def expand_to_128bit(key):

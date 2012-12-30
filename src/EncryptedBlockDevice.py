@@ -3,7 +3,7 @@ import math
 import logging
 from Crypto.Hash import SHA256, HMAC
 import struct
-
+from util import *
 class SectorHmacDoesntMatch(Exception):
 	def __init__(self,message):
 		super(SectorHmacDoesntMatch, self).__init__()
@@ -92,7 +92,7 @@ class EncryptedBlockDevice(object):
 
 			ciphertext = crypto.encrypt(sector,plaintext[:write_size],ciphertext,write_begin,write_end)
 			self.logger.debug("EBD write_begin: %d write_end: %d size: %d plaintext_size %d",write_begin,write_end,write_size,plaintext_size)	
-			device.write(sector,ciphertext)
+			self.write_sector(sector,ciphertext)
 
 			plaintext=plaintext[write_size:]
 			self.offset+=write_size
@@ -125,10 +125,10 @@ class EncryptedBlockDeviceWithHmac(EncryptedBlockDevice):
 		self.active_sectors = active_sectors
 
 	def save_sector_hmac(self,sector,data):
-		print "saving hmac for %d" % (sector)
+		#print "saving hmac for %d" % (sector)
 		hmac = self.get_hmac(data)
 		buf=hmac.digest()
-
+		#print to_hex(buf)
 		offset2 = self.offset
 		self.seek(self.get_sector_hmac_offset(sector))
 		self.compute_hmac=False
@@ -162,25 +162,26 @@ class EncryptedBlockDeviceWithHmac(EncryptedBlockDevice):
 			self.seek(offset2)
 			self.check_hmac = True
 			saved_hmac = data
-			len(computed_hmac)
-			len(saved_hmac)
 
 			if computed_hmac != saved_hmac:
-				s = "sector %d has been modified"  %  (sector)
+				s = "sector %d has been modified "  %  (sector)
 				print s
+				print "reading from %d" % (self.get_sector_hmac_offset(sector))
+				print to_hex(computed_hmac)
+				print to_hex(str(saved_hmac))
 				raise SectorHmacDoesntMatch(s)
 		return buf
 
 	def compute_disk_hmac(self):
 		
-		print
+		#print
 
 		for i in range(0,self.active_sectors):
 			s = self.device.read(i)
 			self.save_sector_hmac(i,s)
 
-		print "zuo"
-		print self.hmac_section_begin
+		#print "zuo"
+		#print self.hmac_section_begin
 
 	def find_modified_sectors(self):
 		ret = []
