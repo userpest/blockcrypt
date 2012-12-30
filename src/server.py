@@ -5,6 +5,7 @@ from DiskDrivers import *
 from EncryptionDrivers import *
 import logging
 import hashlib
+from Crypto.Hash import MD5
 # Working: nbd protocol, read/write serving up files, error handling, file size detection, in theory, large file support... not really, so_reuseaddr, nonforking
 
 def recvall(sock, length):
@@ -52,7 +53,9 @@ if __name__ == '__main__':
 
     disk = FileDiskDriver(filename)
     key = hashlib.sha256("666").digest() 
-    crypto = CbcEssivEncryptionDriver(key,disk.sector_size)
+    key2 = MD5("666").digest()
+    keys=(key,key2)
+    crypto = LRWEncryptionDriver(keys,disk.sector_size)
 
     dev = EncryptedBlockDevice(crypto,disk)
 

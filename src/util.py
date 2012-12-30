@@ -1,4 +1,4 @@
-def get_random_sector(sector_size, source ="/dev/urandom" )
+def get_random_sector(sector_size, source ="/dev/urandom" ):
 	fp = open(source,"rb")
 	data = fp.read(sector_size)
 	fp.close()
@@ -11,7 +11,7 @@ def to_bytes(n):
 		c = n % 256
 		buf=chr(c)+buf
 		n = n>>8
-
+	buf=bytearray(16-len(buf))+buf
 	return buf
 
 def from_bytes(buf):
@@ -34,4 +34,12 @@ def xor_bytes(a,b):
 	ret = bytearray(len(a))
 	for i in range(0,len(a)):
 		ret[i]=a[i]^b[i]
+	return ret
 
+class DummyCrypto(object):
+	def __init__(self):
+		self.block_size = 16
+	def encrypt(self,data):
+		return data
+	def decrypt(self,data):
+		return data

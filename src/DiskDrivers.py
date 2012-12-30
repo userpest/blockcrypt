@@ -10,7 +10,7 @@ import re
 
 class WrongDiskSize(Exception):
 	def __init__(self,message):
-		super(WrongSectorSizeException, self).__init__()
+		super(WrongDiskSize, self).__init__()
 		self.message=message
 
 
@@ -24,7 +24,8 @@ class DiskDriver(object):
 		self.sector_size = sector_size
 		self.logger = logging.getLogger("blockcrypt")
 		if size % sector_size != 0:
-			raise WrongDiskSize("disk size must the multiple of sector size")
+			print "DD init received %d %d" %(size,sector_size)
+			raise WrongDiskSize("disk size must the multiple of sector size %d %d" % (size,sector_size))
 
 	def read(self,sector):
 		pass
@@ -60,25 +61,23 @@ class FileBasedDiskDriver(DiskDriver):
 		return buf
 
 		#TODO: source should be random, urandom is for speed
-		def flush(self):
+	def flush(self):
 		self.fp.flush()
 
-class FileDiskDriver(FileDiskDriver):
+class FileDiskDriver(FileBasedDiskDriver):
 	def __init__(self,filename):
 		fp = open(filename,"r+b")
-		(size,sector_size,disk_begin) = self.read_disk_info()
+		(size,sector_size,disk_begin) = self.read_disk_info(filename)
 		super(FileDiskDriver,self).__init__(fp,size,sector_size,disk_begin)
 
 	@staticmethod
 	def read_disk_info(filename):
 		fp = open(filename,'rb')
-		self.logger.debug("FDD: read disk info ")
 		info_size = struct.calcsize('Q')
 		info = fp.read(info_size)
 		disk_begin = info_size
 
 		size = os.stat(filename).st_size
-		self.logger.debug("FDD: info_size %d , disk_begin %d", info_size, self.disk_begin)
 		fp.close()
 		sector_size = struct.unpack('Q', info)[0]
 		return (size,sector_size,disk_begin)

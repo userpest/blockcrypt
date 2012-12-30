@@ -23,10 +23,11 @@ class EncryptedBlockDevice(object):
 		self.hmac_size=SHA256.digest_size
 
 		self.hmac_entry_size=struct.calcsize('Q')+self.hmac_size
-
-		active_sectors = math.floor(self.size/(self.sector_size+self.hmac_entry_size)
-		self.hmac_pos = active_sectors*sector_size
+		active_sectors = math.floor(self.size/(self.sector_size+self.hmac_entry_size))
+		self.hmac_pos = active_sectors*self.sector_size
 		self.hmac_section_begin=self.hmac_pos+self.hmac_size
+		self.realsize = self.size
+		self.size -= self.hmac_size + self.hmac_entry_size*active_sectors
 
 	def seek(self,offset,from_what=0):
 		self.logger.debug("EBD seek %d %d", offset,from_what)
@@ -111,7 +112,7 @@ class EncryptedBlockDevice(object):
 	def get_hmac(self,data):
 		return HMAC.new(self.hmac_key,data, SHA256)		
 
-	def sector_hmac_valid(self,sector)
+	def sector_hmac_valid(self,sector):
 		buf = self.device.read(sector)
 		computed_hmac = self.get_hmac(data)
 		data = self.read(self.get_sector_hmac_offset(sector),self.hmac_entry_size)
