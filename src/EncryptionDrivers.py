@@ -154,7 +154,7 @@ class LRWEncryptionDriver(TweakableBlockEncryptionDriver):
 		return x
 
 	def get_phys_index(self,sector,block):
-		return sector*self.sector_size+block*self.block_size
+		return int(sector*self.sector_size+block*self.block_size)
 
 	def encrypt_block(self,sector,block,plaintext):
 		index = self.get_phys_index(sector,block)

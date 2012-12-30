@@ -39,7 +39,7 @@ class DiskDriver(object):
 
 
 class FileBasedDiskDriver(DiskDriver):
-	def __init__(self,fp,sector_size,size,disk_begin=0):
+	def __init__(self,fp,size,sector_size,disk_begin=0):
 		super(FileBasedDiskDriver,self).__init__(size,sector_size)
 		self.fp = fp
 		self.disk_begin = disk_begin
@@ -77,7 +77,7 @@ class FileDiskDriver(FileBasedDiskDriver):
 		info = fp.read(info_size)
 		disk_begin = info_size
 
-		size = os.stat(filename).st_size
+		size = os.stat(filename).st_size - info_size
 		fp.close()
 		sector_size = struct.unpack('Q', info)[0]
 		return (size,sector_size,disk_begin)

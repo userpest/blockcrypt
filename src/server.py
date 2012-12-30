@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     disk = FileDiskDriver(filename)
     key = hashlib.sha256("666").digest() 
-    key2 = MD5("666").digest()
+    key2 = hashlib.md5("666").digest()
     keys=(key,key2)
     crypto = LRWEncryptionDriver(keys,disk.sector_size)
 
