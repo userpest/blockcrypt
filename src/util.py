@@ -1,3 +1,10 @@
+from hashlib import sha256, md5
+
+def expand_to_256bit(key):
+	return sha256(key).digest()
+def expand_to_128bit(key):
+	return md5.digest(key)
+
 def get_random_sector(sector_size, source ="/dev/urandom" ):
 	fp = open(source,"rb")
 	data = fp.read(sector_size)

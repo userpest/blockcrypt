@@ -2,11 +2,18 @@
 import math
 import logging
 from Crypto.Hash import SHA256, HMAC
+import struct
+
+class SectorHmacDoesntMatch(Exception):
+	def __init__(self,message):
+		super(SectorHmacDoesntMatch, self).__init__()
+		self.message=message
+
 
 #TODO:merge DiskDrivers and EncryptedBlockDevice into one
 class EncryptedBlockDevice(object):
 
-	def __init__(self,crypto_driver,disk_driver,use_hmac=False):
+	def __init__(self,crypto_driver,disk_driver):
 
 		logging.basicConfig(filename='blockcrypt.log',level=logging.DEBUG)
 		self.crypto = crypto_driver
@@ -16,18 +23,6 @@ class EncryptedBlockDevice(object):
 		self.size = disk_driver.size
 		self.logger = logging.getLogger("blockcrypt")
 
-		if use_hmac:
-			self.hmac_init()
-
-	def hmac_init(self):
-		self.hmac_size=SHA256.digest_size
-
-		self.hmac_entry_size=struct.calcsize('Q')+self.hmac_size
-		active_sectors = math.floor(self.size/(self.sector_size+self.hmac_entry_size))
-		self.hmac_pos = active_sectors*self.sector_size
-		self.hmac_section_begin=self.hmac_pos+self.hmac_size
-		self.realsize = self.size
-		self.size -= self.hmac_size + self.hmac_entry_size*active_sectors
 
 	def seek(self,offset,from_what=0):
 		self.logger.debug("EBD seek %d %d", offset,from_what)
@@ -55,10 +50,13 @@ class EncryptedBlockDevice(object):
 			read_end = min(sector_offset+size, sector_size)	
 			size-=read_size
 			self.offset+=read_size
-			ciphertext = device.read(sector)	
+			ciphertext = self.read_sector(sector)	
 			yield (sector,ciphertext,read_begin,read_end,read_size) 		
 
 
+
+	def read_sector(self,sector):
+		return self.device.read(sector)
 
 	def read(self,size):
 		buf = bytearray()
@@ -69,9 +67,13 @@ class EncryptedBlockDevice(object):
 			plaintext = crypto.decrypt(sector,ciphertext)	
 			self.logger.debug("EBD: read crypto returned %d data", len(ciphertext))
 			buf+=plaintext[read_begin:read_end]
+
 		self.logger.debug("EBD read successfull read size: %d", len(buf))
 		return buf
 
+	#meh
+	def write_sector(self,sector,data):
+		device.write(sector,data)
 
 	def write(self,plaintext):
 		#TODO:optimize
@@ -82,15 +84,16 @@ class EncryptedBlockDevice(object):
 		plaintext_size = len(plaintext)
 		while plaintext_size > 0 :
 			(sector, sector_offset) = self.get_current_sector()	
-			write_begin = sector_offset
-			write_end = min(plaintext_size+sector_offset,sector_size)
-			write_size = write_end-write_begin
+			write_begin = int(sector_offset)
+			write_end = int(min(plaintext_size+sector_offset,sector_size))
+			write_size = int(write_end-write_begin)
 
 			ciphertext = self.device.read(sector)
 
 			ciphertext = crypto.encrypt(sector,plaintext[:write_size],ciphertext,write_begin,write_end)
 			self.logger.debug("EBD write_begin: %d write_end: %d size: %d plaintext_size %d",write_begin,write_end,write_size,plaintext_size)	
 			device.write(sector,ciphertext)
+
 			plaintext=plaintext[write_size:]
 			self.offset+=write_size
 			plaintext_size-=write_size
@@ -100,51 +103,91 @@ class EncryptedBlockDevice(object):
 		self.logger.debug("EBD flush")
 		self.device.flush()
 
+class EncryptedBlockDeviceWithHmac(EncryptedBlockDevice):
+
+	def __init__(self,crypto_driver,disk_driver,hmac_key):
+
+		super(EncryptedBlockDeviceWithHmac,self).__init__(crypto_driver,disk_driver)
+
+		self.hmac_key = hmac_key
+		self.hmac_size=SHA256.digest_size
+
+		self.hmac_entry_size=self.hmac_size
+		active_sectors = int(math.floor(self.size/(self.sector_size+self.hmac_entry_size)))
+
+		self.hmac_pos = active_sectors*self.sector_size
+		self.hmac_section_begin=self.hmac_pos
+
+		self.realsize = self.size
+		self.size -= self.hmac_entry_size*active_sectors
+		self.compute_hmac = True
+		self.check_hmac = True
+		self.active_sectors = active_sectors
+
 	def save_sector_hmac(self,sector,data):
+		print "saving hmac for %d" % (sector)
 		hmac = self.get_hmac(data)
-		buf = struct.pack('Q', sector)
-		buf+=hmac.digest()
-		self.write(self.get_sector_hmac_offset(sector),buf)
+		buf=hmac.digest()
+
+		offset2 = self.offset
+		self.seek(self.get_sector_hmac_offset(sector))
+		self.compute_hmac=False
+		self.write(buf)
+		self.seek(offset2)
+
+		self.compute_hmac = True
+
+	def write_sector(self,sector,data):
+		if self.compute_hmac:
+			self.save_sector_hmac(sector,data)
+		self.device.write(sector,data)
 
 	def get_sector_hmac_offset(self,sector):
-		return self.hmac_section_begin+sector*self.hmac_entry_size
+		return int(self.hmac_section_begin + sector*self.hmac_entry_size)
 
 	def get_hmac(self,data):
 		return HMAC.new(self.hmac_key,data, SHA256)		
 
-	def sector_hmac_valid(self,sector):
+	def read_sector(self,sector):
+
 		buf = self.device.read(sector)
-		computed_hmac = self.get_hmac(data)
-		data = self.read(self.get_sector_hmac_offset(sector),self.hmac_entry_size)
-		saved_hmac=data[infosize:]
 
-		if computed_hmac != saved_hmac:
-			return False
-		else:
-			return True
+		if self.check_hmac :
+			computed_hmac = self.get_hmac(buf).digest()
 
-	def saved_disk_hmac(self):
-		hmac = self.read(self.hmac_pos,self.hmac_size)
+			self.check_hmac = False
+			offset2 = self.offset
+			self.seek(self.get_sector_hmac_offset(sector))
+			data = self.read(self.hmac_entry_size)
+			self.seek(offset2)
+			self.check_hmac = True
+			saved_hmac = data
+			len(computed_hmac)
+			len(saved_hmac)
+
+			if computed_hmac != saved_hmac:
+				s = "sector %d has been modified"  %  (sector)
+				print s
+				raise SectorHmacDoesntMatch(s)
+		return buf
 
 	def compute_disk_hmac(self):
-		hmac = HMAC.new(self.hmac_key,"",SHA256)
+		
+		print
 
-		for i in range(0,self.size/self.sector_size):
+		for i in range(0,self.active_sectors):
 			s = self.device.read(i)
-			hmac.update(s)
+			self.save_sector_hmac(i,s)
 
-		return hmac.digest()
-
-	def check_disk_hmac(self):
-		if self.saved_disk_hmac() != self.compute_disk_hmac():
-			return False
-		else:
-			return True
+		print "zuo"
+		print self.hmac_section_begin
 
 	def find_modified_sectors(self):
 		ret = []
-		for i in range(0,self.size/self.sector_size):
+		for i in range(0,int(math.floor(self.size/self.sector_size))):
 			if not self.sector_hmac_valid(i):
 				ret.append(i)
 
 		return ret
+
+
