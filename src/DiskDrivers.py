@@ -6,6 +6,7 @@ from dropbox import client, rest, session
 from StringIO import StringIO
 from util import *
 import re
+from appkeys import *
 #use /dev/random if security matters
 
 class WrongDiskSize(Exception):
@@ -187,24 +188,38 @@ class CachedDiskDriver(DiskDriver):
 		pass
 
 class DropboxDiskDriver(CachedDiskDriver):
-	def __init__(self,username,password):
+	def __init__(self,cache_size):
 		self.authenticate()
+		#bit sloppy but shouldnt be able to lead to a significant attack
+		try:
+			f,meta = self.client.get_file_and_metadata("/config")	
+			hack = StringIO(f.read())
+			hack.seek(0)
+			size = int(hack.readline())
+			sector_size = int(hack.readline())
+			super(DropboxDiskDriver,self).__init__(size,sector_size,cache_size)
+			f.close()
+		except rest.ErrorResponse:
+			print "config doesnt exist on server"
+			pass
 
 	def get_sector(self,sector):
-		f, metadata = client.get_file_and_metadata(self.get_sector_name(sector))
+		f, metadata = self.client.get_file_and_metadata(self.get_sector_name(sector))
 		data = f.read(self.sector_size)
+		f.close()
 		return data
 
 	def write_sector(self,sector,data):
 		f = StringIO(data)	
-		client.put_file(self.get_sector_name(sector), f)
+		self.client.put_file(self.get_sector_name(sector), f)
 
-	def get_sector_name(sector):
+	def get_sector_name(self,sector):
 		sector_name = '/'+str(sector)
 		return sector_name
 
 
 	def authenticate(self):
+		ACCESS_TYPE='dropbox'
 		sess = session.DropboxSession(APP_KEY, APP_SECRET, ACCESS_TYPE)
 		request_token = sess.obtain_request_token()
 		url = sess.build_authorize_url(request_token)
@@ -215,10 +230,26 @@ class DropboxDiskDriver(CachedDiskDriver):
 		self.client =  client.DropboxClient(sess)
 
 
-	def create_disk(size,sector_size,rand_source='/dev/urandom'):	
-		for i in range(0,size/sector_size):
+	def create_disk(self,size,sector_size,rand_source='/dev/urandom'):	
+		config = StringIO()
+		s = "%d\n%d" %(size,sector_size)
+		config.write(s)
+		config.seek(0)
+		self.client.put_file("/config", config)
+
+		for i in range(0,int(size/sector_size)):
 			s = get_random_sector(sector_size,rand_source)
 			self.write_sector(i,s)
+		self.size = size
+		self.sector_size = sector_size
 
+	def delete_disk(self):
+		self.client.file_delete("/config", config)
+
+		for i in range(0,int(size/sector_size)):
+			self.client.file_delete(self.get_sector_name(i))
+
+		self.size = size
+		self.sector_size = sector_size
 
 

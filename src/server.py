@@ -22,6 +22,7 @@ parser.add_argument("--create", help="specify whether to create a new disk or no
 parser.add_argument("--sector_size", help="disk sector size in bytes, obsolete for --create must be a multiple of 16 , defaults to 1024", type=int, default = 1024)
 parser.add_argument("--disk_size", help="disk size in bytes, obsolete for --create, must be a multiple of sector_size defaults to 1MB", type=int, default = 1024*1024)
 parser.add_argument("-p","--port", type=int, default=1337, help="server port, defaults to 1337")
+parser.add_argument("-cs", "--cache_size", help="disk cache size, defaults to 10MB", default=1024*1024*10,type=int)
 
 args = parser.parse_args()
 
@@ -45,7 +46,7 @@ if args.device == 'dropbox':
 	if args.create:
 		DropboxDiskDriver().create(sector_size,args.disk_size)
 
-	fp = DropboxDiskDriver()
+	fp = DropboxDiskDriver(args.cache_size)
 
 
 if args.encryption == 'cbc':
