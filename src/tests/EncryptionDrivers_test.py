@@ -58,17 +58,37 @@ class TweakableEncryptionTest(EncryptionTest):
 	def block_encryption_test(self):
 		for i in  range(0,self.sector_size, self.crypto.block_size):
 			block = self.plaintext[i:i+self.crypto.block_size]
-			cblock = self.crypto.encrypt_block(self.tweak, i, block)
-			block2 = self.crypto.decrypt_block(self.tweak, i,cblock)
+			cblock = self.crypto.encrypt_block(self.tweak, i/(self.crypto.block_size), block)
+			block2 = self.crypto.decrypt_block(self.tweak, i/(self.crypto.block_size),cblock)
 			self.assertEqual(block,block2)
 
+		tweak2 = self.tweak+1
+		i1 = 0
+		i2 = 1
+		b1 = self.crypto.encrypt_block(self.tweak,i1, block)
+		b2 = self.crypto.encrypt_block(self.tweak,i2,block)
+		self.assertNotEqual(b1,b2)
 
-class TweakableBlockEncryptionDriverTest(TweakableEncryptionTest,unittest.TestCase):
-	@classmethod
-	def setUpClass(self):
-		super(TweakableBlockEncryptionDriverTest,self).setUpClass()
-		key = hashlib.sha256("666").digest() 
-		self.crypto = TweakableBlockEncryptionDummyDriver(key,self.sector_size)
+		b1 = self.crypto.encrypt_block(self.tweak,i1, block)
+		b2 = self.crypto.encrypt_block(tweak2,i1,block)
+		self.assertNotEqual(b1,b2)
+
+		b1 = self.crypto.encrypt_block(self.tweak,i1, block)
+		b2 = self.crypto.encrypt_block(tweak2,i2,block)
+		self.assertNotEqual(b1,b2)
+
+
+
+
+
+
+
+#class TweakableBlockEncryptionDriverTest(TweakableEncryptionTest,unittest.TestCase):
+#	@classmethod
+#	def setUpClass(self):
+#		super(TweakableBlockEncryptionDriverTest,self).setUpClass()
+#		key = hashlib.sha256("666").digest() 
+#		self.crypto = TweakableBlockEncryptionDummyDriver(key,self.sector_size)
 
 class LRWEncryptionDriverTest(TweakableEncryptionTest,unittest.TestCase):
 	@classmethod

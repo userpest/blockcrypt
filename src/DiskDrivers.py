@@ -127,8 +127,9 @@ class CachedDiskDriver(DiskDriver):
 	"""
 	def __init__(self,size,sector_size,cache_size):
 		super(CachedDiskDriver,self).__init__(size,sector_size)
-		sectors_accessed = deque()
-		sector_cache = {}
+		print "cached init called"
+		self.sectors_accessed = deque()
+		self.sector_cache = {}
 		self.cache_size = cache_size
 
 	def read(self,sector):
@@ -166,7 +167,7 @@ class CachedDiskDriver(DiskDriver):
 
 
 	def make_space(self):
-		if len(sectors_accessed) > self.cache_size:
+		if len(self.sectors_accessed) > self.cache_size:
 			self.uncache_last()
 
 	def uncache_last(self,sector):
@@ -191,6 +192,7 @@ class DropboxDiskDriver(CachedDiskDriver):
 	def __init__(self,cache_size):
 		self.authenticate()
 		#bit sloppy but shouldnt be able to lead to a significant attack
+		self.cache_size = cache_size
 		try:
 			f,meta = self.client.get_file_and_metadata("/config")	
 			hack = StringIO(f.read())
@@ -201,6 +203,7 @@ class DropboxDiskDriver(CachedDiskDriver):
 			f.close()
 		except rest.ErrorResponse:
 			print "config doesnt exist on server"
+			super(DropboxDiskDriver,self).__init__(0,1,cache_size)
 			pass
 
 	def get_sector(self,sector):
@@ -242,14 +245,15 @@ class DropboxDiskDriver(CachedDiskDriver):
 			self.write_sector(i,s)
 		self.size = size
 		self.sector_size = sector_size
+		super(DropboxDiskDriver,self).__init__(size,sector_size,self.cache_size)
 
 	def delete_disk(self):
-		self.client.file_delete("/config", config)
+		self.client.file_delete("/config")
 
-		for i in range(0,int(size/sector_size)):
+		for i in range(0,int(self.size/self.sector_size)):
 			self.client.file_delete(self.get_sector_name(i))
 
-		self.size = size
-		self.sector_size = sector_size
+		self.size = 0
+		self.sector_size = 0
 
 

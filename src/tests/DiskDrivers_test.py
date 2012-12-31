@@ -32,8 +32,8 @@ class DropboxDiskDriverTest(DiskDriverTest, unittest.TestCase):
 	@classmethod
 	def setUpClass(self):
 		self.disk = DropboxDiskDriver(1024)
-		self.disk.create_disk(1024*1024,1024)
-		super(FileDiskDriverTest,self).setUpClass()
+		self.disk.create_disk(10*1024,1024)
+		super(DropboxDiskDriverTest,self).setUpClass()
 
 	@classmethod
 	def tearDownClass(self):
