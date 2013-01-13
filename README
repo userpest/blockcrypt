@@ -1,1 +1,17 @@
-hi
+In order to get this one needs to execute following steps:
+
+1. start server with proper arguments - please refer to ./server --help 
+
+2. load nbd driver 
+	modprobe nbd
+
+2. connect to the driver
+	nbd-client localhost port_of_your_choice /dev/nbd0
+
+3. mount the block device
+	mount /dev/nbd0 mount_point_of_your_choice
+
+SECURITY NOTICE:
+as this program exports _unencrypted_ block device via sockets, please ensure 
+that you are the _only_ person able to connect to the server ( so block it from the outside by firewall
+and ensure that at that time you are the only one logged in)

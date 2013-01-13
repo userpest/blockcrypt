@@ -1,4 +1,5 @@
 from hashlib import sha256, md5
+from Crypto.Protocol.KDF import PBKDF2
 
 def to_hex(s):
 	lst = []
@@ -60,3 +61,14 @@ class DummyCrypto(object):
 		return data
 	def decrypt(self,data):
 		return data
+
+def derive_keys(key,count,size=32,salt = 'changemepls', iterations = 50000):
+	derived = PBKDF2(key, salt,dkLen = count*size,count = iterations)
+	keys = [] 
+
+	for i in range(0,count):
+		keys.append(derived[i*size:(i+1)*size])
+
+	return keys
+	
+		
