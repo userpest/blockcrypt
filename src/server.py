@@ -7,11 +7,12 @@ import logging
 import hashlib
 from Crypto.Hash import MD5
 from nbd_server import NBDServer
+from getpass import getpass
 
 parser = argparse.ArgumentParser(description="NBD server for encrypted block devices\
 		please ensure that the server port is protected by firewall\
 		and there are no other users present in the system")
-parser.add_argument("-k1", "--key1", help="1rst encryption key", type=str,required=True)
+#parser.add_argument("-k1", "--key1", help="1rst encryption key", type=str,required=True)
 parser.add_argument("-c", "--encryption", help="encryption mode, default is cbc", type=str,choices=['cbc','xts','xex', 'lrw'],default='cbc')
 parser.add_argument("-d", "--device", help="block device of your choice, default is file", type=str,choices=['file','hdd', 'dropbox'], default='file')
 parser.add_argument("-m", "--use_hmac", help="specify whether to use hmac or not", action='store_true')
@@ -26,7 +27,7 @@ args = parser.parse_args()
 
 sector_size = args.sector_size
 
-key1 = args.key1
+key1 = getpass("please enter your encryption password: ")
 
 if args.device== 'file':
 	if args.filename==None:
