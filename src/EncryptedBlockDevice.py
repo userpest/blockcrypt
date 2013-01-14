@@ -37,7 +37,7 @@ class EncryptedBlockDevice(object):
 		"""
 		returns a pair (sector_number,sector_offset)
 		"""
-		return (math.floor(self.offset/self.sector_size), self.offset%self.sector_size)
+		return (int(math.floor(self.offset/self.sector_size)), self.offset%self.sector_size)
 
 	def _read(self,size):
 		self.logger.debug("_read %d", size)
