@@ -68,7 +68,7 @@ if args.encryption == 'lrw':
 
 	k = derive_keys(key1,2)
 	key1 = k[0]
-	key2 = k[1]
+	key2 = k[1][0:16]
 
 	crypto = LRWEncryptionDriver((key1,key2),sector_size)
 
