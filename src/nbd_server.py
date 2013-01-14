@@ -38,16 +38,16 @@ class NBDServer(object):
 			if request == READ:
 				self.dev.seek(offset)
 				asock.send('gDf\x98\0\0\0\0'+handle)
-				print "begin r"
+				#print "begin r"
 				asock.send(dev.read(dlen))
-				print "read"
+				#print "read"
 			elif request == WRITE:
 				dev.seek(offset)
 				dev.write(self.recvall(asock, dlen))
 				dev.flush()
-				print "begin w"
+				#print "begin w"
 				asock.send('gDf\x98\0\0\0\0'+handle)
-				print "write"
+				#print "write"
 			elif request == CLOSE:
 				asock.close()
 				dev.flush()

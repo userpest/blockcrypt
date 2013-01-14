@@ -73,7 +73,7 @@ class EncryptedBlockDevice(object):
 
 	#meh
 	def write_sector(self,sector,data):
-		device.write(sector,data)
+		self.device.write(sector,data)
 
 	def write(self,plaintext):
 		#TODO:optimize
