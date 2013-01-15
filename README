@@ -1,22 +1,24 @@
 In order to get this working one needs to execute following steps:
 
 1. start server with proper arguments - please refer to ./server --help 
+
 e.g if you want to create a disk
-python server.py -c cbc -f img1.img  --create
+
+	python server.py -c cbc -f img1.img  --create
 
 --create will overwrite the file with matching name 
 
 later on if you want to simply mount a disk
 
-python server.py -c cbc -f img1.img
+	python server.py -c cbc -f img1.img
 
 2. load nbd driver 
 	modprobe nbd
 
-2. connect to the driver
+3. connect to the driver
 	nbd-client localhost port_of_your_choice /dev/nbd0
 
-3. mount the block device
+4. mount the block device
 	mount /dev/nbd0 mount_point_of_your_choice
 
 Please have in mind that the program is implemented in python => its SLOW
