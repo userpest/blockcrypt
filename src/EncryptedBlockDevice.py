@@ -124,6 +124,7 @@ class EncryptedBlockDeviceWithHmac(EncryptedBlockDevice):
 		offset2 = self.offset
 		self.seek(self.get_sector_hmac_offset(sector))
 		self.compute_hmac=False
+		self.check_hmac = False
 		self.write(buf)
 		self.seek(offset2)
 
