@@ -1,45 +1,26 @@
 import unittest
 from ..EncryptionDrivers import *
+from ..util import get_random_sector
 import hashlib
 
 class EncryptionTest(object):
 
 	@classmethod
 	def setUpClass(self):
-		print "setupclass called "
 		self.sector_size = 512
 		self.crypto = None
-		fp = open('/dev/urandom', 'rb')
-		self.plaintext = fp.read(self.sector_size)
-		self.ciphertext = fp.read(self.sector_size)
 		self.tweak = 1337
-		fp.close()
+		self.plaintext = get_random_sector(self.sector_size)
 	
 
 	def test_full_encryption(self):
-		cipher = self.crypto.encrypt(self.tweak,self.plaintext,self.ciphertext,0,self.sector_size)
-		decrypted = self.crypto.decrypt(self.tweak,cipher)
-		self.assertEqual(decrypted,self.plaintext)
+		for tweak in range(0,500):
+			plaintext = get_random_sector(self.sector_size)
+			cipher = self.crypto.encrypt(tweak,plaintext)
+			decrypted = self.crypto.decrypt(tweak,cipher)
+			self.assertEqual(decrypted,plaintext)
 
-	#would it be proper if those tests will use a common funct for decryption/encryption?
-	def test_begin_to_offset_encr(self):
-		offset = self.crypto.block_size*4+5	
-		cipher = self.crypto.encrypt(self.tweak,self.plaintext[0:offset],self.ciphertext,0,offset)
-		decrypted = self.crypto.decrypt(self.tweak,cipher)
-		self.assertEqual(decrypted[0:offset],self.plaintext[0:offset])	
 
-	def test_offset_to_end_encr(self):
-		offset = self.crypto.block_size*4+5	
-		cipher = self.crypto.encrypt(self.tweak,self.plaintext[offset:self.sector_size],self.ciphertext,offset,self.sector_size)
-		decrypted = self.crypto.decrypt(self.tweak,cipher)
-		self.assertEqual(decrypted[offset:self.sector_size],self.plaintext[offset:self.sector_size])	
-
-	def test_offset_to_offet_encr(self):
-		start_offset= self.crypto.block_size*4+5	
-		end_offset= self.crypto.block_size*20+7	
-		cipher = self.crypto.encrypt(self.tweak,self.plaintext[start_offset:end_offset],self.ciphertext,start_offset,end_offset)
-		decrypted = self.crypto.decrypt(self.tweak,cipher)
-		self.assertEqual(decrypted[start_offset:end_offset],self.plaintext[start_offset:end_offset])	
 class DummyEncryptionTest( EncryptionTest,unittest.TestCase ):
 	@classmethod
 	def setUpClass(self):

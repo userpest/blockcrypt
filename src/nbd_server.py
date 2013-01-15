@@ -15,6 +15,7 @@ class NBDServer(object):
 		lsock.listen(5)
 		while True:
 			(self.asock, self.addr) = lsock.accept()
+			print "connection"
 			self.serveclient()
 
 	def recvall(self,sock, length):

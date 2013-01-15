@@ -1,20 +1,16 @@
 from ..DiskDrivers import *
+from ..util import get_random_sector
 import unittest
 import os
 
 class DiskDriverTest(object):
-	@classmethod
-	def setUpClass(self):
-		fp  = open("/dev/urandom", "rb")
-		self.data = fp.read(self.disk.sector_size)
-		fp.close()
-		
 	def sector_rw_test(self):
 		for i in range(0,self.disk.size,self.disk.sector_size):
+			data = get_random_sector(self.disk.sector_size)
 			index = int(i/self.disk.sector_size)
-			self.disk.write(index,self.data)
+			self.disk.write(index,data)
 			received  = self.disk.read(index)
-			self.assertEqual(self.data,received)
+			self.assertEqual(data,received)
 
 class FileDiskDriverTest(DiskDriverTest, unittest.TestCase):
 	@classmethod

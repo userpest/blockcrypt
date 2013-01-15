@@ -41,9 +41,8 @@ class DummyEncryptionDriver(EncryptionDriver):
 	"""
 	def __init__(self,sector_size):
 		super(DummyEncryptionDriver,self).__init__(None,sector_size)
-	def encrypt(self,sector,plaintext,ciphertext,write_begin,write_end):
-		buf = ciphertext[:write_begin]+plaintext+ciphertext[write_end:]
-		return buf
+	def encrypt(self,sector,plaintext):
+		return plaintext
 	def decrypt(self,sector,ciphertext):
 		return ciphertext
 
@@ -64,9 +63,8 @@ class CbcEssivEncryptionDriver(EncryptionDriver):
 		buf = self.essiv_cipher.encrypt(buf)
 		return buf
 
-	def encrypt(self,sector,plaintext,ciphertext,write_begin,write_end):
-		block = self.decrypt(sector,ciphertext)
-		plaintext = block[:write_begin]+plaintext+block[write_end:]
+	def encrypt(self,sector,plaintext):
+
 		iv = self.get_iv(sector)
 		cipher = AES.new(self.key,AES.MODE_CBC, IV = iv)
 		ciphertext = cipher.encrypt(plaintext)
@@ -83,10 +81,10 @@ class TweakableBlockEncryptionDriver(EncryptionDriver):
 		return (int(math.floor(offset/self.block_size)), offset%self.block_size)
 
 	def encrypt_block(self,sector,block,plaintext):
-		return plaintext
+		pass
 
 	def decrypt_block(self,sector,block,ciphertext):
-		return ciphertext
+		pass
 
 	def decrypt(self,sector,ciphertext):
 		plaintext = bytearray()
@@ -96,38 +94,14 @@ class TweakableBlockEncryptionDriver(EncryptionDriver):
 
 		return plaintext
 
-	def encrypt(self,sector,plaintext,ciphertext,write_begin,write_end):
-		block_size = self.block_size
-		plaintext_size = len(plaintext)
+	def encrypt(self,sector,plaintext):
 
-		pos = write_begin
-		end = write_end
-		
-		block =  self.get_block(pos)[0]
-		modification_start=block*block_size
-		block = self.get_block(end-1)[0]
-		modification_end = (block)*block_size
-		buf = bytearray()
-		while plaintext_size > 0 :
-			(block, block_offset) = self.get_block(pos)	
-			write_begin = block_offset
-			write_end = min(plaintext_size+block_offset,block_size)
-			write_size = write_end-write_begin
+		ciphertext = bytearray()
 
-			block_pos = block*block_size
-			cipher_block = ciphertext[block_pos:block_pos+block_size]
-			cipher_block = self.decrypt_block(sector,block,cipher_block)
-			cipher_block=cipher_block[:write_begin]+plaintext[:write_size]+cipher_block[write_end:]
-			cipher_block = self.encrypt_block(sector,block,cipher_block)
+		for i in range(0,self.sector_size,self.block_size):
+			ciphertext += self.encrypt_block(sector,i/self.block_size,plaintext[i:i+self.block_size])
 
-			buf+=cipher_block
-
-			plaintext=plaintext[write_size:]
-			plaintext_size-=write_size
-			pos+=write_size
-
-		ret = ciphertext[:modification_start]+buf+ciphertext[modification_end:]
-		return ret
+		return ciphertext
 
 class TweakableBlockEncryptionDummyDriver(TweakableBlockEncryptionDriver):
 	def __init__(self,key,sector_size):

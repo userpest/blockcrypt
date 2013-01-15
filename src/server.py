@@ -75,13 +75,13 @@ if args.encryption == 'lrw':
 
 if args.use_hmac:
 	hmac_key = derive_keys(key1,1)[0]
-	dev = EncryptedBlockDeviceWithHmac(crypto,fp,args.hmac_key)
+	dev = EncryptedBlockDeviceWithHmac(crypto,fp,hmac_key)
 
 	if args.create:
 		dev.compute_disk_hmac()
 else:
 	dev = EncryptedBlockDevice(crypto,fp)
 
-
+print "server running"
 server = NBDServer(dev,args.port)
 server.run()
